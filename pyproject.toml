@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ad-data-aggregator"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+]
+
+[tool.hatch.build]
+src = "src"  # 必须放这里！
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ad_data_aggregator_backend"]
