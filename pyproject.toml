@@ -1,15 +1,17 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]         # 1. 添加插件
 build-backend = "hatchling.build"
 
 [project]
 name = "ad-data-aggregator"
-version = "0.1.0"
+dynamic = ["version"]   # 2. 动态版本好
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "httpx>=0.28.1",
+    "json5>=0.14.0",
+    "tkzs-config-service-client>=0.5.0",
 ]
 
 [tool.hatch.build]
@@ -17,3 +19,12 @@ src = "src"  # 必须放这里！
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/ad_data_aggregator_backend"]
+
+[tool.hatch.version] # 设置版本号来源
+source = "vcs"    
+[tool.hatch.version.raw-options]
+#version_scheme = "no-guess-dev"               # 在非 release 标签时，不增加开发版本号
+local_scheme = "no-local-version"    
+
+[tool.hatch.build.hooks.vcs] 
+version-file = "_version.py"
