@@ -1,10 +1,15 @@
-import json5
-
-def test_jsonc():
-    with open('ad_data_aggregator_config.jsonc', 'r', encoding='utf-8') as f:
-        data = json5.load(f)
-    print(data)
+from ad_data_aggregator_backend.config.config import ad_data_aggregator_config
+from loguru import logger
 
 
-if __name__ == '__main__':
-    test_jsonc()
+
+if __name__ == "__main__":
+    
+    logger.log("SERVICE_INFO","test")
+    logger.log("SERVICE_DEBUG","test")
+    logger.log("METHOD_INFO","test")
+    logger.log("METHOD_DEBUG","test")
+    logger.log("PRIVATE_IMPLEMENTATION_INFO","test")
+    logger.log("PRIVATE_IMPLEMENTATION_DEBUG","test")
+    logger.log("CORE_INFO","test")
+    logger.log("CORE_DEBUG","test")

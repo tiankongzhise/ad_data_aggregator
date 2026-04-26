@@ -3,7 +3,7 @@ from typing import  Any
 from httpx import AsyncClient
 import json
 from typing import Literal
-
+from ad_data_aggregator_backend.config import AdPlatformSecretManager
 
 class _Utils:
     async def get_dimensions_and_metrics_cache(self,cache_path:str = 'dimensions_and_metrics.json'):
@@ -179,13 +179,24 @@ class _Utils:
         return conflicts
 
 class OceanEnginePlugin(PlatformPluginInterface):
+    def __init__(self,secret_manager:AdPlatformSecretManager|None = None):
+        if secret_manager is None:
+            secret_manager = AdPlatformSecretManager("ocean_engine")
+            secret_manager.pf_load_from_config_center()
+        self.__secret_manager = secret_manager
     _utils = _Utils()
     def get_platform_name(self) -> str:
         return "ocean_engine"
     
     async def fetch_data(self, credentials: dict[str, str], report_type: str, dimensions: list[str], metrics: list[str], start_time: str, end_time: str) -> list[dict[str, Any]]:
         ...
-    async def _get_access_token(self,app_id:str,secret:str,auth_code:str) -> dict[str, Any]:
+    def _safe_get_field_value(self,field_name:str,value:Any|None = None) -> Any:
+        default_value = self.__secret_manager.pf_get_secret_value(field_name)
+        final_value = value or default_value
+        if final_value is None:
+            raise ValueError(f"未找到{field_name}，请提供{field_name}或配置中心配置的{field_name}")
+        return final_value
+    async def _get_access_token(self,auth_code:str,*,app_id:str|None = None,secret:str|None = None) -> dict[str, Any]:
         host = 'https://api.oceanengine.com'
         path = '/open_api/oauth2/access_token/'
         url = host + path
@@ -193,14 +204,14 @@ class OceanEnginePlugin(PlatformPluginInterface):
             'Content-Type': 'application/json'
         }
         data = {
-            'app_id': app_id,
-            'secret': secret,
+            'app_id': self._safe_get_field_value("app_id",app_id),
+            'secret': self._safe_get_field_value("secret",secret),
             'auth_code': auth_code
         }
         async with AsyncClient() as client:
             response = await client.post(url, headers=headers, json=data)
             return response.json()
-    async def _refresh_access_token(self,app_id:str,secret:str,refresh_token:str) -> dict[str, Any]:
+    async def _refresh_access_token(self,refresh_token:str|None = None,*,app_id:str|None = None,secret:str|None = None) -> dict[str, Any]:
         host = 'https://api.oceanengine.com'
         path = '/open_api/oauth2/refresh_token/'
         url = host + path
@@ -208,46 +219,58 @@ class OceanEnginePlugin(PlatformPluginInterface):
             'Content-Type': 'application/json'
         }
         data = {
-            'app_id': app_id,
-            'secret': secret,
-            'refresh_token': refresh_token
+            'app_id':  self._safe_get_field_value("app_id",app_id),
+            'secret': self._safe_get_field_value("secret",secret),
+            'refresh_token': self._safe_get_field_value("refresh_token",refresh_token),
         }
         async with AsyncClient() as client:
             response = await client.post(url, headers=headers, json=data)
             return response.json()
-    async def _get_available_dimensions_and_metrics_by_data_topic(self,advertiser_id:int,data_topics:list[str],access_token:str) -> dict[str, Any]:
+    async def _get_available_dimensions_and_metrics_by_data_topic(self,data_topics:list[str],advertiser_name:str,*,access_token:str|None = None,advertiser_id:int|None = None) -> dict[str, Any]:
         host = 'https://api.oceanengine.com'
         path = '/open_api/v3.0/report/custom/config/get/'
         url = host + path
-        headers = {
-            'Access-Token': access_token
+        headers:dict[str, str] = {
+            'Access-Token': self._safe_get_field_value("access_token",access_token),
         }
+        cc_account_id_map = self.__secret_manager.pf_get_secret_value('cc_account_id_map')
+        if cc_account_id_map is None:
+            raise ValueError(f"未找到广告主ID映射，请提供广告主ID或配置中心配置的广告主ID映射")
+        default_advertiser_id = cc_account_id_map.get(advertiser_name)
+        if default_advertiser_id is None and advertiser_id is None:
+            raise ValueError(f"未找到广告主ID，请提供广告主ID或配置中心配置的广告主ID映射")
         data = {
-            'advertiser_id': advertiser_id,
+            'advertiser_id': advertiser_id or default_advertiser_id,
             'data_topics': json.dumps(data_topics)
         }
         async with AsyncClient() as client:
             response = await client.get(url, headers=headers, params=data)
             return response.json()
-    async def _get_advertiser_list(self,access_token:str) -> dict[str, Any]:
+    async def _get_authorized_accounts(self,access_token:str|None = None) -> dict[str, Any]:
         host = 'https://api.oceanengine.com'
         path = '/open_api/oauth2/advertiser/get/'
         url = host + path
-        headers = {
-            'Access-Token': access_token
+        headers:dict[str, str] = {
+            'Access-Token': self._safe_get_field_value("access_token",access_token),
         }
         async with AsyncClient() as client:
             response = await client.get(url, headers=headers)
             return response.json()
-    async def _get_customer_center_advertiser_list(self,cc_account_id:int,account_source:Literal['AD','ENTERPRISE','LOCAL'],access_token:str) -> dict[str, Any]:
+    async def _get_customer_center_advertiser_list(self,advertiser_name:str,account_source:Literal['AD','ENTERPRISE','LOCAL'],*,cc_account_id:int|None = None,access_token:str|None = None) -> dict[str, Any]:
         host = 'https://api.oceanengine.com'
         path = '/open_api/2/customer_center/advertiser/list/'
         url = host + path
         headers = {
-            'Access-Token': access_token
+            'Access-Token': self._safe_get_field_value("access_token",access_token),
         }
+        cc_account_id_map = self.__secret_manager.pf_get_secret_value('cc_account_id_map')
+        if cc_account_id_map is None:
+            raise ValueError(f"未找到广告主ID映射，请提供广告主ID或配置中心配置的广告主ID映射")
+        default_cc_account_id = cc_account_id_map.get(advertiser_name)
+        if default_cc_account_id is None and cc_account_id is None:
+            raise ValueError(f"未找到广告主ID，请提供广告主ID或配置中心配置的广告主ID映射")
         params = {
-            'cc_account_id': cc_account_id,
+            'cc_account_id': cc_account_id or default_cc_account_id,
             'account_source': account_source
         }
         async with AsyncClient() as client:

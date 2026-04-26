@@ -15,8 +15,8 @@
         "refresh_token":"aeb8a6f7b1138b534008e11ec8e54f1603cea3ac",
         "expires_at":1777002759,
         "refresh_token_expires_at":1777564799,
-        "advertiser_id_map":{"BP-1800168496063497":1800168496063497},
-        "cc_account_id_map":{
+        "account_id_map":{"BP-1800168496063497":1800168496063497},
+        "advertiser_id_map":{
             "紫蝉跨境电商(产品出海)":1813535994941443,
             "ZY-东莞市科创技工学校-自-4":1802432785730570,
             "ZY-东莞市科创技工学校-自-3":1802432784788553,
